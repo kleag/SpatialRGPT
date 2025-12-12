@@ -7,6 +7,31 @@ import torch
 import torchvision.transforms as transforms
 import trimesh
 from PIL import Image
+import onnxruntime as ort
+from huggingface_hub import hf_hub_download
+
+# repo_id = "onnx-community/metric3d-vit-giant2"
+repo_id = "onnx-community/metric3d-vit-large"
+filename = "onnx/model.onnx"
+# data_file = "onnx/model.onnx_data"
+onnx_model_path = hf_hub_download(repo_id=repo_id, filename=filename)
+# onnx_data_path = hf_hub_download(repo_id=repo_id, filename=data_file)
+
+# --- Verification ---
+# The two files should be in the same folder, which is the default cache location
+model_dir = os.path.dirname(onnx_model_path)
+print(f"Model Directory: {model_dir}", file=sys.stderr)
+# Make sure model.onnx and model.onnx_data are both in this directory.
+
+providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+ort_session = ort.InferenceSession(
+    onnx_model_path,
+    providers=providers,
+)
+
+# Get input and output names
+input_name = ort_session.get_inputs()[0].name
+output_names = [output.name for output in ort_session.get_outputs()]
 
 
 def get_depth_model(device):
@@ -77,21 +102,48 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     print(f"metric3d_v2 inference_depth pad_info: {pad_info}", file=sys.stderr)
 
     #### normalize
-    mean = torch.tensor([123.675, 116.28, 103.53]).float()[:, None, None]
-    std = torch.tensor([58.395, 57.12, 57.375]).float()[:, None, None]
-    rgb = torch.from_numpy(rgb.transpose((2, 0, 1))).float()
-    rgb = torch.div((rgb - mean), std)
-    rgb = rgb[None, :, :, :].cuda()
+    # mean = torch.tensor([123.675, 116.28, 103.53]).float()[:, None, None]
+    # std = torch.tensor([58.395, 57.12, 57.375]).float()[:, None, None]
+    # rgb = torch.from_numpy(rgb.transpose((2, 0, 1))).float()
+    # rgb = torch.div((rgb - mean), std)
+    # rgb = rgb[None, :, :, :].cuda()
 
-    dummy_input = torch.randn(1, 3, h, w).cuda() # H, W are the expected input_size H, W
-    with torch.no_grad():
-        test_depth, _, _ = depth_model.inference({"input": dummy_input})
-    print(f"Dummy test output NaN check: {test_depth.isnan().any()}")
+    # dummy_input = torch.randn(1, 3, h, w).cuda() # H, W are the expected input_size H, W
+    # with torch.no_grad():
+    #     test_depth, _, _ = depth_model.inference({"input": dummy_input})
+    # print(f"Dummy test output NaN check: {test_depth.isnan().any()}")
 
-    with torch.no_grad():
-        pred_depth, confidence, output_dict = depth_model.inference({"input": rgb})
+    # with torch.no_grad():
+    #     pred_depth, confidence, output_dict = depth_model.inference({"input": rgb})
+    # print(
+    #     f"metric3d_v2 inference_depth initial pred_depth: {pred_depth}", file=sys.stderr
+    # )
+
+    # 1. Input Preparation (Using NumPy/CPU for normalization)
+    mean = np.array([123.675, 116.28, 103.53], dtype=np.float32)[:, None, None]
+    std = np.array([58.395, 57.12, 57.375], dtype=np.float32)[:, None, None]
+
+    # Ensure 'rgb' is the PADDED NumPy array (H, W, C)
+    rgb_np = rgb.transpose((2, 0, 1)).astype(np.float32)  # (C, H, W)
+    normalized_input = np.divide((rgb_np - mean), std)
+    final_onnx_input = normalized_input[np.newaxis, :, :, :]  # (1, C, H, W)
+
+    # 2. ONNX Inference
+    ort_inputs = {input_name: final_onnx_input}
+    ort_outputs = ort_session.run(output_names, ort_inputs)
+
+    # 3. Process Outputs
+    # Assume the first output is depth, second is confidence (check model documentation!)
+    pred_depth_np = ort_outputs[0]
+    confidence_np = ort_outputs[1]
+
+    # Convert NumPy arrays back to PyTorch tensors and move to CUDA
+    # to continue with the rest of your original pipeline (e.g., Perspective Fields, Open3D).
+    pred_depth = torch.from_numpy(pred_depth_np).cuda()
+    confidence = torch.from_numpy(confidence_np).cuda()
     print(
-        f"metric3d_v2 inference_depth initial pred_depth: {pred_depth}", file=sys.stderr
+        f"metric3d_v2 inference_depth onnx pred_depth: {pred_depth}, {confidence}",
+        file=sys.stderr,
     )
 
     # un pad
