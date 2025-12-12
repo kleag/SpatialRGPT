@@ -1,4 +1,6 @@
+import os
 import random
+import sys
 from collections import Counter
 
 import cv2
@@ -31,26 +33,53 @@ class PointCloudReconstruction:
             # Initialize the perspective_fields_model
             if self.cfg.perspective_model_variant == "perspective_fields":
                 print(f"Using Perspective Fields")
-                self.perspective_fields_model = get_perspective_fields_model(cfg, device)
+                self.perspective_fields_model = get_perspective_fields_model(
+                    cfg, device
+                )
             elif self.cfg.perspective_model_variant == "geo_calib":
                 from geocalib import GeoCalib
 
                 print(f"Using Geo Calib")
                 self.perspective_fields_model = GeoCalib(weights="distorted").to(device)
             else:
-                raise ValueError(f"perspective_model_variant: {self.cfg.perspective_model_variant} not implemented")
+                raise ValueError(
+                    f"perspective_model_variant: {self.cfg.perspective_model_variant} not implemented"
+                )
 
-            # Initialize the Camera Intrinsics Model
-            self.wilde_camera_model = torch.hub.load("ShngJZ/WildCamera", "WildCamera", pretrained=True).to(device)
+            hub_dir = torch.hub.get_dir()
+            repo_name = "ShngJZ_WildCamera_main"
+            repo_path = os.path.join(hub_dir, repo_name)
+            print(f"repo_path={repo_path}", file=sys.stderr)
+
+            if os.path.exists(repo_path):
+                # load from local cache
+                print(f"Model WildCamera cached.")
+                self.wilde_camera_model = torch.hub.load(
+                    repo_path, "WildCamera", pretrained=True, source="local"
+                )
+            else:
+                print("Model WildCamera not cached. Loading from hub.")
+                # Initialize the Camera Intrinsics Model
+                self.wilde_camera_model = torch.hub.load(
+                    "ShngJZ/WildCamera",
+                    "WildCamera",
+                    pretrained=True,
+                    force_reload=False,
+                    skip_validation=True,
+                ).to(device)
 
             # Initialize the Metric3D_v2
             self.depth_model = get_depth_model(device)
         else:
-            self.perspective_fields_model = self.wilde_camera_model = self.depth_model = None
+            self.perspective_fields_model = self.wilde_camera_model = (
+                self.depth_model
+            ) = None
 
     def process(self, filename, image_bgr, detections_list):
         """Reconstruct point cloud from depth map."""
-
+        print(
+            f"PointCloudReconstruction.process on {filename}, for {len(detections_list)} objects detected."
+        )
         image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
         image_rgb_pil = Image.fromarray(image_rgb)
 
@@ -66,11 +95,16 @@ class PointCloudReconstruction:
             from geocalib.utils import rad2deg
 
             # load image as tensor in range [0, 1] with shape [C, H, W]
-            image_geo = torch.tensor((image_rgb.transpose((2, 0, 1))) / 255.0, dtype=torch.float).to(self.device)
-            geo_results = self.perspective_fields_model.calibrate(image_geo, camera_model="simple_radial")
+            image_geo = torch.tensor(
+                (image_rgb.transpose((2, 0, 1))) / 255.0, dtype=torch.float
+            ).to(self.device)
+            geo_results = self.perspective_fields_model.calibrate(
+                image_geo, camera_model="simple_radial"
+            )
             roll, pitch = rad2deg(geo_results["gravity"].rp).unbind(-1)
             roll, pitch = roll.item(), pitch.item()
 
+        print(f"PointCloudReconstruction.process roll: {roll}, pitch: {pitch}")
         # Perspective to Rotation Matrix
         perspective_R = create_rotation_matrix(
             roll=roll,
@@ -78,20 +112,32 @@ class PointCloudReconstruction:
             yaw=0,
             degrees=True,
         )
+        print(f"PointCloudReconstruction.process rotation matrix: {perspective_R}")
 
         # Infer camera intrinsics
-        intrinsic, _ = self.wilde_camera_model.inference(image_rgb_pil, wtassumption=False)
+        intrinsic, _ = self.wilde_camera_model.inference(
+            image_rgb_pil, wtassumption=False
+        )
+        print(f"PointCloudReconstruction.process intrinsic: {intrinsic}")
 
         # Infer depth
         metric_depth = inference_depth(image_rgb, intrinsic, self.depth_model)
+        print(f"PointCloudReconstruction.process depth: {metric_depth}")
 
         # Depth to points
         pts3d = depth_to_points(metric_depth[None], intrinsic=intrinsic)
-        cano_pts3d = depth_to_points(metric_depth[None], R=perspective_R.T, intrinsic=intrinsic)
+        print(f"PointCloudReconstruction.process pts3d: {pts3d}")
+        cano_pts3d = depth_to_points(
+            metric_depth[None], R=perspective_R.T, intrinsic=intrinsic
+        )
+        print(f"PointCloudReconstruction.process cano_pts3d: {cano_pts3d}")
 
         # Translate the points to ground
         cano_pts3d_flattened = cano_pts3d.reshape(-1, 3)
-        sorted_flattened_points = cano_pts3d_flattened[cano_pts3d_flattened[:, 2].argsort()]
+        print(f"PointCloudReconstruction.process cano_pts3d_flattened: {cano_pts3d_flattened}")
+        sorted_flattened_points = cano_pts3d_flattened[
+            cano_pts3d_flattened[:, 2].argsort()
+        ]
         fifty_percent_index = int(sorted_flattened_points.shape[0] * 0.5)
         selected_nearest_points = sorted_flattened_points[:fifty_percent_index]
         min_y = np.min(selected_nearest_points[:, 1])
@@ -99,16 +145,21 @@ class PointCloudReconstruction:
 
         if self.vis:
             wis3d = Wis3D(self.cfg.wis3d_folder, filename)
-            wis3d.add_point_cloud(vertices=pts3d.reshape((-1, 3)), colors=image_rgb.reshape(-1, 3), name="pts3d")
             wis3d.add_point_cloud(
-                vertices=cano_pts3d.reshape((-1, 3)), colors=image_rgb.reshape(-1, 3), name="cano_pts3d"
+                vertices=pts3d.reshape((-1, 3)),
+                colors=image_rgb.reshape(-1, 3),
+                name="pts3d",
+            )
+            wis3d.add_point_cloud(
+                vertices=cano_pts3d.reshape((-1, 3)),
+                colors=image_rgb.reshape(-1, 3),
+                name="cano_pts3d",
             )
 
         ### Create object points ###
         n_objects = len(detections_list)
 
         for obj_idx in range(n_objects):
-
             mask = detections_list[obj_idx]["subtracted_mask"]
             class_name = detections_list[obj_idx]["class_name"]
 
@@ -116,13 +167,17 @@ class PointCloudReconstruction:
 
             # The object should at least contains 5 points
             if len(object_pcd.points) < max(self.cfg.min_points_threshold, 5):
-                print("camera_object_pcd points less than threshold, skip this detection")
+                print(
+                    "camera_object_pcd points less than threshold, skip this detection"
+                )
                 continue
 
             object_pcd = process_pcd(self.cfg, object_pcd)
 
             if len(object_pcd.points) < self.cfg.min_points_threshold_after_denoise:
-                print(f"{class_name} pcd_bbox too less points ({len(object_pcd.points)}), skip this detection")
+                print(
+                    f"{class_name} pcd_bbox too less points ({len(object_pcd.points)}), skip this detection"
+                )
                 continue
 
             axis_aligned_bbox, oriented_bbox = get_bounding_box(self.cfg, object_pcd)
@@ -138,28 +193,41 @@ class PointCloudReconstruction:
         # Filter detections to include only those with a 'pcd' key
         filtered_detections = [det for det in detections_list if "pcd" in det]
 
-        instance_colored_pcds = color_by_instance([det["pcd"] for det in filtered_detections])
+        instance_colored_pcds = color_by_instance(
+            [det["pcd"] for det in filtered_detections]
+        )
         axis_aligned_bbox = [det["axis_aligned_bbox"] for det in filtered_detections]
         oriented_bboxes = [det["oriented_bbox"] for det in filtered_detections]
 
         if self.vis:
             obj_id = 0
-            for obj_pcd, obj_aa_box, obj_or_box in zip(instance_colored_pcds, axis_aligned_bbox, oriented_bboxes):
+            for obj_pcd, obj_aa_box, obj_or_box in zip(
+                instance_colored_pcds, axis_aligned_bbox, oriented_bboxes
+            ):
                 class_name = filtered_detections[obj_id]["class_name"]
                 pcd_points = np.asarray(obj_pcd.points)
                 pcd_colors = np.asarray(obj_pcd.colors)
 
                 # Convert bbox to center, euler, extent
-                aa_center, aa_eulers, aa_extent = axis_aligned_bbox_to_center_euler_extent(
-                    obj_aa_box.get_min_bound(), obj_aa_box.get_max_bound()
+                aa_center, aa_eulers, aa_extent = (
+                    axis_aligned_bbox_to_center_euler_extent(
+                        obj_aa_box.get_min_bound(), obj_aa_box.get_max_bound()
+                    )
                 )
                 or_center, or_eulers, or_extent = oriented_bbox_to_center_euler_extent(
                     obj_or_box.center, obj_or_box.R, obj_or_box.extent
                 )
 
-                wis3d.add_point_cloud(vertices=pcd_points, colors=pcd_colors, name=f"{obj_id:02d}_{class_name}")
+                wis3d.add_point_cloud(
+                    vertices=pcd_points,
+                    colors=pcd_colors,
+                    name=f"{obj_id:02d}_{class_name}",
+                )
                 wis3d.add_boxes(
-                    positions=aa_center, eulers=aa_eulers, extents=aa_extent, name=f"{obj_id:02d}_{class_name}_aa_bbox"
+                    positions=aa_center,
+                    eulers=aa_eulers,
+                    extents=aa_extent,
+                    name=f"{obj_id:02d}_{class_name}_aa_bbox",
                 )
                 # wis3d.add_boxes(positions=or_center, eulers=or_eulers, extents=or_extent, name=f"{obj_id:02d}_{class_name}_or_bbox")
                 obj_id += 1
@@ -243,13 +311,17 @@ def process_pcd(cfg, pcd, run_dbscan=True):
 
     if cfg.dbscan_remove_noise and run_dbscan:
         # print("Before dbscan:", len(pcd.points))
-        pcd = pcd_denoise_dbscan(pcd, eps=cfg.dbscan_eps, min_points=cfg.dbscan_min_points)  #
+        pcd = pcd_denoise_dbscan(
+            pcd, eps=cfg.dbscan_eps, min_points=cfg.dbscan_min_points
+        )  #
         # print("After dbscan:", len(pcd.points))
 
     return pcd
 
 
-def pcd_denoise_dbscan(pcd: o3d.geometry.PointCloud, eps=0.02, min_points=10) -> o3d.geometry.PointCloud:
+def pcd_denoise_dbscan(
+    pcd: o3d.geometry.PointCloud, eps=0.02, min_points=10
+) -> o3d.geometry.PointCloud:
     ### Remove noise via clustering
     pcd_clusters = pcd.cluster_dbscan(
         eps=eps,
@@ -312,7 +384,9 @@ def color_by_instance(pcds):
     instance_colors = cmap(np.linspace(0, 1, len(pcds)))
     for i in range(len(pcds)):
         pcd = pcds[i]
-        pcd.colors = o3d.utility.Vector3dVector(np.tile(instance_colors[i, :3], (len(pcd.points), 1)))
+        pcd.colors = o3d.utility.Vector3dVector(
+            np.tile(instance_colors[i, :3], (len(pcd.points), 1))
+        )
     return pcds
 
 
@@ -325,13 +399,17 @@ def oriented_bbox_to_center_euler_extent(bbox_center, box_R, bbox_extent):
 
 def axis_aligned_bbox_to_center_euler_extent(min_coords, max_coords):
     # Calculate the center
-    center = tuple((min_val + max_val) / 2.0 for min_val, max_val in zip(min_coords, max_coords))
+    center = tuple(
+        (min_val + max_val) / 2.0 for min_val, max_val in zip(min_coords, max_coords)
+    )
 
     # Euler angles for an axis-aligned bounding box are always 0
     eulers = (0, 0, 0)
 
     # Calculate the extents
-    extent = tuple(max_val - min_val for min_val, max_val in zip(min_coords, max_coords))
+    extent = tuple(
+        max_val - min_val for min_val, max_val in zip(min_coords, max_coords)
+    )
 
     return center, eulers, extent
 
@@ -419,7 +497,11 @@ def calculate_relative_positions(centroids):
 
             distance = np.linalg.norm(relative_vector)
             relative_positions_info.append(
-                {"pcd_pair": (i, j), "relative_vector": relative_vector, "distance": distance}
+                {
+                    "pcd_pair": (i, j),
+                    "relative_vector": relative_vector,
+                    "distance": distance,
+                }
             )
 
     return relative_positions_info

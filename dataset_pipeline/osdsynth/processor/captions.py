@@ -61,7 +61,7 @@ class CaptionImage:
     def process_local_caption(self, detections, global_caption="", use_placeholder=True):
         n_objects = len(detections)
         if n_objects < 2:
-            raise SkipImageException("Ddetected objects less than 2")
+            raise SkipImageException("process_local_caption. Detected objects ({n_objects}) less than 2")
 
         for obj_idx in range(n_objects):
             if use_placeholder:

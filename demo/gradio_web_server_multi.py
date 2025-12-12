@@ -39,7 +39,9 @@ else:
 examples = [
     [{"image": "../demo_images/urban.png", "points": [[]]}],
 ]
-
+#examples = [
+#    ["../demo_images/urban.png", [[]]]  # ou un label si c'est un texte
+#]
 conv = None
 conv_history = {"user": [], "model": []}
 
@@ -245,15 +247,18 @@ def inference(*args):
 
 
 def build_promptable_segmentation_tab(prompter, label, process):
-
+    print(f"build_promptable_segmentation_tab", file=sys.stderr)
     output_img = gr.Image()
 
     with gr.Blocks() as tab_layout:
+        print(f"build_promptable_segmentation_tab tab_layout", file=sys.stderr)
         with gr.Row(equal_height=False):
             with gr.Column():
 
                 with gr.Column(variant="panel"):
+                    #input_image = prompter(label=label, sources=["upload"])
                     input_image = prompter(label=label)
+                    print(f"build_promptable_segmentation_tab input_image", file=sys.stderr)
 
                     with gr.Row():
                         use_segmentation = gr.Checkbox(label="Use SAM", value=True)
@@ -286,6 +291,7 @@ def build_promptable_segmentation_tab(prompter, label, process):
                 [input_str, input_image, use_segmentation, use_depth, use_bfloat, follow_up],
                 [output_img, output_txt],
             )
+    print(f"build_promptable_segmentation_tab DONE", file=sys.stderr)
 
     return tab_layout
 
@@ -295,6 +301,7 @@ def build_demo():
     box_segmentation = build_promptable_segmentation_tab(BoxPromptableImage, box_label, inference)
 
     with gr.Blocks(theme="bethecloud/storj_theme") as demo:
+
         title_formatting = "<h1>SpatialRGPT: Grounded Spatial Reasoning in Vision Language Models</h1>"
         description = """
             This demo of SpatialRGPT allows you to prompt using boxes/SAM masks.
@@ -348,4 +355,18 @@ if __name__ == "__main__":
     depth_model, depth_transform = get_depth_predictor()
 
     demo = build_demo()
-    demo.launch(share=True, debug=True)
+
+    os.environ["NO_PROXY"] = "localhost,127.0.0.1,::1"
+
+    SERVER_NAME = "0.0.0.0" 
+    SERVER_PORT = 7860
+
+    demo.launch(
+        server_name=SERVER_NAME,
+        server_port=SERVER_PORT,
+        share=False,             # Prevents creating a public, internet-reachable link
+        inbrowser=False          # Prevents browser from auto-opening on the server
+    )
+
+    print("Gradio app launched successfully. Check your network configuration if you still face issues.")
+

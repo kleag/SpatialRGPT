@@ -1,6 +1,8 @@
 import cv2
+import os
 import matplotlib
 import numpy as np
+import sys
 import torch
 import torchvision.transforms as transforms
 import trimesh
@@ -8,12 +10,33 @@ from PIL import Image
 
 
 def get_depth_model(device):
-    depth_model = torch.hub.load("yvanyin/metric3d", "metric3d_vit_giant2", pretrain=True)
+    hub_dir = torch.hub.get_dir()
+    repo_name = "yvanyin_metric3d_main"
+    repo_path = os.path.join(hub_dir, repo_name)
+
+    if os.path.exists(repo_path):
+        # load from local cache
+        print("Model metric3d_vit_giant2 cached.")
+        depth_model = torch.hub.load(
+            repo_path, "metric3d_vit_giant2", pretrained=True, source="local"
+        )
+    else:
+        print("Model metric3d_vit_giant2 not cached. Loading from hub.")
+        depth_model = torch.hub.load(
+            "yvanyin/metric3d",
+            "metric3d_vit_giant2",
+            pretrain=True,
+            force_reload=False,
+            skip_validation=True,  # optional: skips online hash check
+        )
     return depth_model.to(device)
 
 
 def inference_depth(rgb_origin, intrinsic, depth_model):
     # Code from # https://github.com/YvanYin/Metric3D/blob/main/hubconf.py, assume rgb_origin is in RGB
+    print(
+        f"metric3d_v2 inference_depth initial intrinsic: {intrinsic}", file=sys.stderr
+    )
     intrinsic = [intrinsic[0, 0], intrinsic[1, 1], intrinsic[0, 2], intrinsic[1, 2]]
 
     #### ajust input size to fit pretrained model
@@ -22,9 +45,17 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     # input_size = (544, 1216) # for convnext model
     h, w = rgb_origin.shape[:2]
     scale = min(input_size[0] / h, input_size[1] / w)
-    rgb = cv2.resize(rgb_origin, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR)
+    rgb = cv2.resize(
+        rgb_origin, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR
+    )
     # remember to scale intrinsic, hold depth
-    intrinsic = [intrinsic[0] * scale, intrinsic[1] * scale, intrinsic[2] * scale, intrinsic[3] * scale]
+    intrinsic = [
+        intrinsic[0] * scale,
+        intrinsic[1] * scale,
+        intrinsic[2] * scale,
+        intrinsic[3] * scale,
+    ]
+    print(f"metric3d_v2 inference_depth scaled intrinsic: {intrinsic}", file=sys.stderr)
 
     # padding to input_size
     padding = [123.675, 116.28, 103.53]
@@ -34,9 +65,16 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     pad_h_half = pad_h // 2
     pad_w_half = pad_w // 2
     rgb = cv2.copyMakeBorder(
-        rgb, pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half, cv2.BORDER_CONSTANT, value=padding
+        rgb,
+        pad_h_half,
+        pad_h - pad_h_half,
+        pad_w_half,
+        pad_w - pad_w_half,
+        cv2.BORDER_CONSTANT,
+        value=padding,
     )
     pad_info = [pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half]
+    print(f"metric3d_v2 inference_depth pad_info: {pad_info}", file=sys.stderr)
 
     #### normalize
     mean = torch.tensor([123.675, 116.28, 103.53]).float()[:, None, None]
@@ -45,13 +83,22 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     rgb = torch.div((rgb - mean), std)
     rgb = rgb[None, :, :, :].cuda()
 
+    dummy_input = torch.randn(1, 3, h, w).cuda() # H, W are the expected input_size H, W
+    with torch.no_grad():
+        test_depth, _, _ = depth_model.inference({"input": dummy_input})
+    print(f"Dummy test output NaN check: {test_depth.isnan().any()}")
+
     with torch.no_grad():
         pred_depth, confidence, output_dict = depth_model.inference({"input": rgb})
+    print(
+        f"metric3d_v2 inference_depth initial pred_depth: {pred_depth}", file=sys.stderr
+    )
 
     # un pad
     pred_depth = pred_depth.squeeze()
     pred_depth = pred_depth[
-        pad_info[0] : pred_depth.shape[0] - pad_info[1], pad_info[2] : pred_depth.shape[1] - pad_info[3]
+        pad_info[0] : pred_depth.shape[0] - pad_info[1],
+        pad_info[2] : pred_depth.shape[1] - pad_info[3],
     ]
 
     # upsample to original size
@@ -60,14 +107,18 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     ).squeeze()
 
     #### de-canonical transform
-    canonical_to_real_scale = intrinsic[0] / 1000.0  # 1000.0 is the focal length of canonical camera
+    canonical_to_real_scale = (
+        intrinsic[0] / 1000.0
+    )  # 1000.0 is the focal length of canonical camera
     pred_depth = pred_depth * canonical_to_real_scale  # now the depth is metric
     pred_depth = torch.clamp(pred_depth, 0, 300)
     return pred_depth.detach().cpu().numpy()
 
 
 def depth_to_mesh(points, depth, image_rgb):
-    triangles = create_triangles(image_rgb.shape[0], image_rgb.shape[1], mask=~depth_edges_mask(depth))
+    triangles = create_triangles(
+        image_rgb.shape[0], image_rgb.shape[1], mask=~depth_edges_mask(depth)
+    )
     mesh = trimesh.Trimesh(
         vertices=points.reshape(-1, 3),
         faces=triangles,
