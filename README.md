@@ -2,6 +2,14 @@
   <img src="demo_images/logo.png" width="15%"/>
 </p>
 
+Changes to describe:
+
+```bash
+uv sync --allow-insecure-host gitlab.deeplab.intra.cea.fr
+wget /scratch/gdechalendar/flash_attn-2.7.4+cu130torch2.9-cp312-cp312-linux_x86_64.whl
+uv --allow-insecure-host gitlab.deeplab.intra.cea.fr add /scratch/gdechalendar/flash_attn-2.7.4+cu130torch2.9-cp312-cp312-linux_x86_64.whl 
+```
+
 # SpatialRGPT: Grounded Spatial Reasoning in Vision Language Models (NeurIPS'24)
 
 [![Code License](https://img.shields.io/badge/Code%20License-Apache_2.0-green.svg)](CODE_LICENSE)
