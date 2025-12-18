@@ -3,18 +3,23 @@ import numpy as np
 from itertools import combinations
 import json
 
-from osdsynth.processor.instruction_template import *
-from osdsynth.processor.prompt_utils import *
+from osdsynth.processor.prompt_utils import (
+    generate_random_string,
+    calculate_angle_clockwise,
+    is_aligned_vertically,
+    is_aligned_horizontally,
+    is_y_axis_overlapped,
+    is_supporting,
+)
+
 from osdsynth.processor.pointcloud import (
-    human_like_distance,
     calculate_distances_between_point_clouds,
 )
 
 
 def left_predicate(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     A_pos = A_cloud.get_center()
     B_pos = B_cloud.get_center()
@@ -25,9 +30,8 @@ def left_predicate(A, B):
 
 
 def below_predicate(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     A_pos = A_cloud.get_center()
     B_pos = B_cloud.get_center()
@@ -38,9 +42,8 @@ def below_predicate(A, B):
 
 
 def short_predicate(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     height_A = A_cloud.get_axis_aligned_bounding_box().get_extent()[1]
     height_B = B_cloud.get_axis_aligned_bounding_box().get_extent()[1]
@@ -51,9 +54,8 @@ def short_predicate(A, B):
 
 
 def thin_predicate(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     width_A = A_cloud.get_axis_aligned_bounding_box().get_extent()[0]
     width_B = B_cloud.get_axis_aligned_bounding_box().get_extent()[0]
@@ -64,9 +66,8 @@ def thin_predicate(A, B):
 
 
 def small_predicate(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     extent_A = A_cloud.get_axis_aligned_bounding_box().get_extent()
     volume_A = extent_A[0] * extent_A[1] * extent_A[2]
@@ -80,9 +81,8 @@ def small_predicate(A, B):
 
 
 def front_predicate(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     # Calculate the minimum z-value for both A and B
     A_min_z = A_cloud.get_min_bound()[2]
@@ -122,6 +122,11 @@ def vertical_distance_data(A, B, use_center=True):
     return vertical_distance
 
 
+def distance(A, B):
+    distance = calculate_distances_between_point_clouds(A["pcd"], B["pcd"])
+    return distance
+
+
 def horizontal_distance_data(A, B, use_center=True):
     # Extract bounding boxes for A and B
     A_box = A["pcd"].get_axis_aligned_bounding_box()
@@ -153,9 +158,8 @@ def height_data(A, B=None):
 
 
 def direction(A, B):
-    A_desc, A_cloud = A["caption"], A["pcd"]
-    B_desc, B_cloud = B["caption"], B["pcd"]
-    A_desc, B_desc = A_desc.lower(), B_desc.lower()
+    A_cloud = A["pcd"]
+    B_cloud = B["pcd"]
 
     A_pos = (A_cloud.get_center()[0], A_cloud.get_center()[2])  # Only x, z
     B_pos = (B_cloud.get_center()[0], B_cloud.get_center()[2])  # Only x, z
@@ -165,24 +169,21 @@ def direction(A, B):
     return clock_position
 
 
-class PromptGenerator:
+class SpatialRelationsGenerator:
     def __init__(self, cfg, logger, device):
         """Initialize the class."""
-        self.cfg = cfg
-        self.logger = logger
-        self.device = device
-        self.vis = True
+        pass
 
     def evaluate_predicates_on_pairs(self, detections):
         all_combinations = list(combinations(range(len(detections)), 2))
-        random.shuffle(all_combinations)
-        selected_combinations = all_combinations[:3]
+        # random.shuffle(all_combinations)
+        selected_combinations = all_combinations  # [:3]
         object_pairs = [
             (detections[i], detections[j]) for i, j in selected_combinations
         ]
 
         all_prompt_variants = [
-            # direction,
+            direction,
             left_predicate,
             thin_predicate,
             small_predicate,
@@ -206,10 +207,10 @@ class PromptGenerator:
                 item for item in all_prompt_variants if item not in to_remove
             ]
 
-            # selected_predicates_choices = all_prompt_variants
-            selected_predicates_choices = random.sample(all_prompt_variants, 3)
+            selected_predicates_choices = all_prompt_variants
+            # selected_predicates_choices = random.sample(all_prompt_variants, 3)
 
             for prompt_func in selected_predicates_choices:
-                results.append(prompt_func(A, B))
+                results.append((A, B, prompt_func.__name__, prompt_func(A, B)))
 
         return results
