@@ -1,19 +1,67 @@
 import cv2
+import os
 import matplotlib
 import numpy as np
+import sys
 import torch
 import torchvision.transforms as transforms
 import trimesh
 from PIL import Image
+import onnxruntime as ort
+from huggingface_hub import hf_hub_download
+
+# repo_id = "onnx-community/metric3d-vit-giant2"
+repo_id = "onnx-community/metric3d-vit-large"
+filename = "onnx/model.onnx"
+# data_file = "onnx/model.onnx_data"
+onnx_model_path = hf_hub_download(repo_id=repo_id, filename=filename)
+# onnx_data_path = hf_hub_download(repo_id=repo_id, filename=data_file)
+
+# --- Verification ---
+# The two files should be in the same folder, which is the default cache location
+model_dir = os.path.dirname(onnx_model_path)
+print(f"Model Directory: {model_dir}", file=sys.stderr)
+# Make sure model.onnx and model.onnx_data are both in this directory.
+
+providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+ort_session = ort.InferenceSession(
+    onnx_model_path,
+    providers=providers,
+)
+
+# Get input and output names
+input_name = ort_session.get_inputs()[0].name
+output_names = [output.name for output in ort_session.get_outputs()]
 
 
 def get_depth_model(device):
-    depth_model = torch.hub.load("yvanyin/metric3d", "metric3d_vit_giant2", pretrain=True)
+    hub_dir = torch.hub.get_dir()
+    repo_name = "yvanyin_metric3d_main"
+    repo_path = os.path.join(hub_dir, repo_name)
+
+    if os.path.exists(repo_path):
+        # load from local cache
+        print("Model metric3d_vit_giant2 cached.")
+        depth_model = torch.hub.load(
+            repo_path, "metric3d_vit_giant2", pretrained=True, source="local"
+        )
+    else:
+        print("Model metric3d_vit_giant2 not cached. Loading from hub.")
+        depth_model = torch.hub.load(
+            "yvanyin/metric3d",
+            "metric3d_vit_giant2",
+            pretrain=True,
+            force_reload=False,
+            skip_validation=True,  # optional: skips online hash check
+        )
     return depth_model.to(device)
 
 
 def inference_depth(rgb_origin, intrinsic, depth_model):
     # Code from # https://github.com/YvanYin/Metric3D/blob/main/hubconf.py, assume rgb_origin is in RGB
+    print(
+        f"metric3d_v2 inference_depth initial intrinsic: {intrinsic}", file=sys.stderr
+    )
     intrinsic = [intrinsic[0, 0], intrinsic[1, 1], intrinsic[0, 2], intrinsic[1, 2]]
 
     #### ajust input size to fit pretrained model
@@ -22,9 +70,17 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     # input_size = (544, 1216) # for convnext model
     h, w = rgb_origin.shape[:2]
     scale = min(input_size[0] / h, input_size[1] / w)
-    rgb = cv2.resize(rgb_origin, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR)
+    rgb = cv2.resize(
+        rgb_origin, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR
+    )
     # remember to scale intrinsic, hold depth
-    intrinsic = [intrinsic[0] * scale, intrinsic[1] * scale, intrinsic[2] * scale, intrinsic[3] * scale]
+    intrinsic = [
+        intrinsic[0] * scale,
+        intrinsic[1] * scale,
+        intrinsic[2] * scale,
+        intrinsic[3] * scale,
+    ]
+    print(f"metric3d_v2 inference_depth scaled intrinsic: {intrinsic}", file=sys.stderr)
 
     # padding to input_size
     padding = [123.675, 116.28, 103.53]
@@ -34,24 +90,67 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     pad_h_half = pad_h // 2
     pad_w_half = pad_w // 2
     rgb = cv2.copyMakeBorder(
-        rgb, pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half, cv2.BORDER_CONSTANT, value=padding
+        rgb,
+        pad_h_half,
+        pad_h - pad_h_half,
+        pad_w_half,
+        pad_w - pad_w_half,
+        cv2.BORDER_CONSTANT,
+        value=padding,
     )
     pad_info = [pad_h_half, pad_h - pad_h_half, pad_w_half, pad_w - pad_w_half]
+    print(f"metric3d_v2 inference_depth pad_info: {pad_info}", file=sys.stderr)
 
     #### normalize
-    mean = torch.tensor([123.675, 116.28, 103.53]).float()[:, None, None]
-    std = torch.tensor([58.395, 57.12, 57.375]).float()[:, None, None]
-    rgb = torch.from_numpy(rgb.transpose((2, 0, 1))).float()
-    rgb = torch.div((rgb - mean), std)
-    rgb = rgb[None, :, :, :].cuda()
+    # mean = torch.tensor([123.675, 116.28, 103.53]).float()[:, None, None]
+    # std = torch.tensor([58.395, 57.12, 57.375]).float()[:, None, None]
+    # rgb = torch.from_numpy(rgb.transpose((2, 0, 1))).float()
+    # rgb = torch.div((rgb - mean), std)
+    # rgb = rgb[None, :, :, :].cuda()
 
-    with torch.no_grad():
-        pred_depth, confidence, output_dict = depth_model.inference({"input": rgb})
+    # dummy_input = torch.randn(1, 3, h, w).cuda() # H, W are the expected input_size H, W
+    # with torch.no_grad():
+    #     test_depth, _, _ = depth_model.inference({"input": dummy_input})
+    # print(f"Dummy test output NaN check: {test_depth.isnan().any()}")
+
+    # with torch.no_grad():
+    #     pred_depth, confidence, output_dict = depth_model.inference({"input": rgb})
+    # print(
+    #     f"metric3d_v2 inference_depth initial pred_depth: {pred_depth}", file=sys.stderr
+    # )
+
+    # 1. Input Preparation (Using NumPy/CPU for normalization)
+    mean = np.array([123.675, 116.28, 103.53], dtype=np.float32)[:, None, None]
+    std = np.array([58.395, 57.12, 57.375], dtype=np.float32)[:, None, None]
+
+    # Ensure 'rgb' is the PADDED NumPy array (H, W, C)
+    rgb_np = rgb.transpose((2, 0, 1)).astype(np.float32)  # (C, H, W)
+    normalized_input = np.divide((rgb_np - mean), std)
+    final_onnx_input = normalized_input[np.newaxis, :, :, :]  # (1, C, H, W)
+
+    # 2. ONNX Inference
+    ort_inputs = {input_name: final_onnx_input}
+    ort_outputs = ort_session.run(output_names, ort_inputs)
+
+    # 3. Process Outputs
+    # Assume the first output is depth, second is confidence (check model documentation!)
+    pred_depth_np = ort_outputs[0]
+    confidence_np = ort_outputs[1]
+
+    # Convert NumPy arrays back to PyTorch tensors and move to CUDA
+    # to continue with the rest of your original pipeline (e.g., Perspective Fields, Open3D).
+    pred_depth = torch.from_numpy(pred_depth_np).cuda()
+    confidence = torch.from_numpy(confidence_np).cuda()
+    print(
+        f"metric3d_v2 inference_depth onnx pred_depth: {pred_depth}, {confidence}",
+        file=sys.stderr,
+    )
 
     # un pad
     pred_depth = pred_depth.squeeze()
     pred_depth = pred_depth[
-        pad_info[0] : pred_depth.shape[0] - pad_info[1], pad_info[2] : pred_depth.shape[1] - pad_info[3]
+        pad_info[0] : pred_depth.shape[0] - pad_info[1],
+        pad_info[2] : pred_depth.shape[1] - pad_info[3],
     ]
 
     # upsample to original size
@@ -60,14 +159,18 @@ def inference_depth(rgb_origin, intrinsic, depth_model):
     ).squeeze()
 
     #### de-canonical transform
-    canonical_to_real_scale = intrinsic[0] / 1000.0  # 1000.0 is the focal length of canonical camera
+    canonical_to_real_scale = (
+        intrinsic[0] / 1000.0
+    )  # 1000.0 is the focal length of canonical camera
     pred_depth = pred_depth * canonical_to_real_scale  # now the depth is metric
     pred_depth = torch.clamp(pred_depth, 0, 300)
     return pred_depth.detach().cpu().numpy()
 
 
 def depth_to_mesh(points, depth, image_rgb):
-    triangles = create_triangles(image_rgb.shape[0], image_rgb.shape[1], mask=~depth_edges_mask(depth))
+    triangles = create_triangles(
+        image_rgb.shape[0], image_rgb.shape[1], mask=~depth_edges_mask(depth)
+    )
     mesh = trimesh.Trimesh(
         vertices=points.reshape(-1, 3),
         faces=triangles,

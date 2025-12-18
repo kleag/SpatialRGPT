@@ -60,7 +60,8 @@ remove_classes = [
 bg_classes = ["wall", "floor", "ceiling"]
 
 # Sam related params
-sam_variant = "sam-hq"
+sam_variant = "sam-hq" # or 'vit_h', 'vit_l', 'vit_b'
+sam_checkpoint_path = "osdsynth/external/Grounded-Segment-Anything/sam_hq_vit_h.pth"
 
 # Tag2text related params
 specified_tags = "None"
@@ -69,6 +70,9 @@ specified_tags = "None"
 box_threshold = 0.25
 text_threshold = 0.2
 nms_threshold = 0.5
+gdino_variant = "IDEA-Research/grounding-dino-base"
+
+
 
 # LLaVa related params
 masking_option = "none"
