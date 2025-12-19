@@ -350,11 +350,18 @@ wheels = [
 
 [[package]]
 name = "bitsandbytes"
-version = "0.41.0"
+version = "0.49.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/84/65/05cb06d964862f209dbec1caae62c22467f586751c2b4774d488391f0c29/bitsandbytes-0.41.0.tar.gz", hash = "sha256:5c7439f16b81e9379d648b2840c7efb7017a724f8cae2c9eab535addeb697192", size = 91071288, upload-time = "2023-07-22T20:59:27.322Z" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "torch" },
+]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/33/1cea2d1c909dd3e2b595f7b73c4417f3786c385a4b269a5c40c7699bb14b/bitsandbytes-0.41.0-py3-none-any.whl", hash = "sha256:dfaebbdcf48bff6628ca04880877a10b4da61e4fff62cdd3433764b1571ab3d1", size = 92575859, upload-time = "2023-07-22T20:59:20.524Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/96/2b825cb874477a26478df0ce8ce3550abe81af1c7bcbc47871f0619b120c/bitsandbytes-0.49.0-py3-none-macosx_14_0_arm64.whl", hash = "sha256:17d5b57e6d51b78bcfc07da0e93db061181b25bffabfafe101dd9b75c2710872", size = 129838, upload-time = "2025-12-11T20:50:39.645Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/4f/9f6d161e9ea68cdd6b85585dee9b383748ca07431e31c4c134111f87489e/bitsandbytes-0.49.0-py3-none-manylinux_2_24_aarch64.whl", hash = "sha256:7e69951b4d207a676986fce967544d9599f23518d0f09d478295996aeff377c2", size = 31065242, upload-time = "2025-12-11T20:50:41.903Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/a8/26f7815b376b1d3dae615263471cb6d0d9f9792a472d5dab529502deac67/bitsandbytes-0.49.0-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:0c46cdef50b3174463b6bdf13715c9f1f00b360be3626e3c5d2f8d226af2cf3f", size = 59053880, upload-time = "2025-12-11T20:50:45.422Z" },
+    { url = "https://files.pythonhosted.org/packages/69/76/bc6460b1618322258e7d251cd0c9d11d98d5232bb37cd507451e40127f8e/bitsandbytes-0.49.0-py3-none-win_amd64.whl", hash = "sha256:57a327c6d65f7eda32eb8d416ef8e44d2415c2e7b4fdb735896abd04171ae696", size = 54700284, upload-time = "2025-12-11T20:50:49.373Z" },
 ]
 
 [[package]]
@@ -1040,6 +1047,16 @@ sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598", size = 16740, upload-time = "2025-11-21T23:01:53.443Z" },
 ]
+
+[[package]]
+name = "fairscale"
+version = "0.4.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c1/08/b3334d7b543ac10dcb129cef4f84723ab696725512f18d69ab3a784b0bf5/fairscale-0.4.13.tar.gz", hash = "sha256:1b797825c427f5dba92253fd0d8daa574e8bd651a2423497775fab1b30cfb768", size = 266261, upload-time = "2022-12-11T18:09:16.892Z" }
 
 [[package]]
 name = "faiss-cpu"
@@ -4403,7 +4420,7 @@ wheels = [
 
 [[package]]
 name = "robotic-scene-mcp"
-version = "0.1.2"
+version = "0.1.6"
 source = { registry = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -4436,9 +4453,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/files/924ff0d5eeca9d472bdfb2e73cdd32fb184af2865e636e706debb2597c7e6607/robotic_scene_mcp-0.1.2.tar.gz", hash = "sha256:924ff0d5eeca9d472bdfb2e73cdd32fb184af2865e636e706debb2597c7e6607" }
+sdist = { url = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/files/7b56e4125263d86d7614727e6905798ec9f4bef0800d116ec44fccab014f7ad0/robotic_scene_mcp-0.1.6.tar.gz", hash = "sha256:7b56e4125263d86d7614727e6905798ec9f4bef0800d116ec44fccab014f7ad0" }
 wheels = [
-    { url = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/files/7e362970531b4cd637a72c7512b3e8f633d036abc8ae02d91ca76d7c23ab3318/robotic_scene_mcp-0.1.2-py3-none-any.whl", hash = "sha256:7e362970531b4cd637a72c7512b3e8f633d036abc8ae02d91ca76d7c23ab3318" },
+    { url = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/files/81ff8950c750465cdec82a870b6723fa250215230d53f81c0e398e9c86a18585/robotic_scene_mcp-0.1.6-py3-none-any.whl", hash = "sha256:81ff8950c750465cdec82a870b6723fa250215230d53f81c0e398e9c86a18585" },
 ]
 
 [[package]]
@@ -5525,6 +5542,7 @@ dependencies = [
     { name = "detectron2" },
     { name = "einops" },
     { name = "einops-exts" },
+    { name = "fairscale" },
     { name = "fastapi" },
     { name = "flash-attn" },
     { name = "gradio" },
@@ -5589,7 +5607,7 @@ train = [
 [package.metadata]
 requires-dist = [
     { name = "accelerate", specifier = "==0.27.2" },
-    { name = "bitsandbytes", specifier = ">=0.41.0" },
+    { name = "bitsandbytes", specifier = ">=0.49.0" },
     { name = "cuda-python", specifier = ">=13.0.3" },
     { name = "datasets", specifier = "==2.16.1" },
     { name = "decord", specifier = "==0.6.0" },
@@ -5598,6 +5616,7 @@ requires-dist = [
     { name = "detectron2", git = "https://github.com/facebookresearch/detectron2.git" },
     { name = "einops", specifier = "==0.6.1" },
     { name = "einops-exts", specifier = "==0.0.4" },
+    { name = "fairscale", specifier = ">=0.4.13" },
     { name = "fastapi" },
     { name = "flash-attn", path = "../../../flash_attn-2.7.4+cu130torch2.9-cp312-cp312-linux_x86_64.whl" },
     { name = "gradio", specifier = ">=4.0,<5" },
@@ -5630,7 +5649,7 @@ requires-dist = [
     { name = "pywsd", specifier = "==1.2.4" },
     { name = "pywsd", marker = "extra == 'eval'" },
     { name = "requests" },
-    { name = "robotic-scene-mcp", specifier = ">=0.1.2", index = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/simple" },
+    { name = "robotic-scene-mcp", specifier = ">=0.1.6", index = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/simple" },
     { name = "s2wrapper", git = "https://github.com/bfshi/scaling_on_scales" },
     { name = "scikit-learn", specifier = ">=1.5.0" },
     { name = "segment-anything-hq", specifier = ">=0.3" },

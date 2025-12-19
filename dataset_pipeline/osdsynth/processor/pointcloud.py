@@ -476,7 +476,7 @@ def calculate_distances_between_point_clouds(A, B):
     dist_pcd2_to_pcd1 = np.asarray(B.compute_point_cloud_distance(A))
     combined_distances = np.concatenate((dist_pcd1_to_pcd2, dist_pcd2_to_pcd1))
     avg_dist = np.mean(combined_distances)
-    return human_like_distance(avg_dist)
+    return avg_dist
 
 
 def calculate_centroid(pcd):

@@ -1,4 +1,5 @@
 import cv2
+import shortuuid
 import sys
 import torch
 import torchvision
@@ -46,6 +47,7 @@ def reconstruct_detections_dict(detections_list: List[Dict[str, Any]], all_class
     if not detections_list:
         # Handle empty case: Ensure 'classes' is still included
         return {
+            "id": np.array([]), 
             "xyxy": np.array([]).reshape(0, 4), 
             "confidence": np.array([]), 
             "class_id": np.array([]), 
@@ -59,6 +61,7 @@ def reconstruct_detections_dict(detections_list: List[Dict[str, Any]], all_class
         }
 
     detections_dict = {
+        "id": np.array([d["id"] for d in detections_list]),
         "xyxy": np.array([d["xyxy"] for d in detections_list]),
         "confidence": np.array([d["confidence"] for d in detections_list]),
         "class_id": np.array([d["class_id"] for d in detections_list]).astype(int),
@@ -90,6 +93,7 @@ def convert_detections_dict_to_list(detections_dict: Dict[str, np.ndarray], all_
         class_id = detections_dict["class_id"][i]
         
         det = {
+            "id": detections_dict.get("id")[i],
             "xyxy": detections_dict["xyxy"][i],
             "confidence": detections_dict["confidence"][i],
             "class_id": class_id,
@@ -122,6 +126,7 @@ def convert_gdino_output_to_detections_list(boxes, scores, labels, class_names, 
         box_unnormalized = (box * tensor_scale / 1000).cpu().numpy().astype(int)
         
         detections_list.append({
+            "id": shortuuid.uuid(),
             "xyxy": box_unnormalized, # Pixel coordinates [x1, y1, x2, y2]
             "confidence": score.item(),
             "class_id": class_names.index(label_idx.split(" ")[0]),
@@ -224,7 +229,10 @@ def run_tagging_model_hf(cfg, img_pil: Image.Image, tagging_transform, tagging_m
 # ----------------------------------------------------------------------
 
 class SegmentImage:
-    """Class to segment the image using Hugging Face Grounding DINO and official SAM."""
+    """
+    Class to segment an image using Hugging Face Grounding DINO and official 
+    SAM instead of manually downloaded code and models.
+    """
 
     def __init__(self, cfg: Config, logger: Any, device: str, 
                  init_gdino=True, init_tagging=True, init_sam=True):

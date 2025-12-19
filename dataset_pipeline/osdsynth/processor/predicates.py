@@ -1,15 +1,8 @@
-import random
 import numpy as np
 from itertools import combinations
-import json
 
 from osdsynth.processor.prompt_utils import (
-    generate_random_string,
     calculate_angle_clockwise,
-    is_aligned_vertically,
-    is_aligned_horizontally,
-    is_y_axis_overlapped,
-    is_supporting,
 )
 
 from osdsynth.processor.pointcloud import (
@@ -17,7 +10,7 @@ from osdsynth.processor.pointcloud import (
 )
 
 
-def left_predicate(A, B):
+def left_predicate(A, B) -> bool:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -26,10 +19,10 @@ def left_predicate(A, B):
 
     is_left = A_pos[0] > B_pos[0]  # Compare X coordinates
 
-    return is_left
+    return bool(is_left)
 
 
-def below_predicate(A, B):
+def below_predicate(A, B) -> bool:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -38,10 +31,10 @@ def below_predicate(A, B):
 
     is_below = A_pos[1] < B_pos[1]
 
-    return is_below
+    return bool(is_below)
 
 
-def short_predicate(A, B):
+def short_predicate(A, B) -> bool:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -50,10 +43,10 @@ def short_predicate(A, B):
 
     is_shorter = height_A < height_B
 
-    return is_shorter
+    return bool(is_shorter)
 
 
-def thin_predicate(A, B):
+def thin_predicate(A, B) -> bool:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -62,10 +55,10 @@ def thin_predicate(A, B):
 
     is_thinner = width_A < width_B
 
-    return is_thinner
+    return bool(is_thinner)
 
 
-def small_predicate(A, B):
+def small_predicate(A, B) -> bool:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -77,10 +70,10 @@ def small_predicate(A, B):
 
     is_smaller = volume_A < volume_B
 
-    return is_smaller
+    return bool(is_smaller)
 
 
-def front_predicate(A, B):
+def front_predicate(A, B) -> bool:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -90,13 +83,13 @@ def front_predicate(A, B):
     # Determine if A is behind B based on the minimum z-value
     is_in_front = A_min_z < B_min_z
 
-    return is_in_front
+    return bool(is_in_front)
 
 
 # Distance prompts
 
 
-def vertical_distance_data(A, B, use_center=True):
+def vertical_distance_data(A, B, use_center=True) -> float:
     # Get the bounding boxes for both A and B
     A_box = A["pcd"].get_axis_aligned_bounding_box()
     B_box = B["pcd"].get_axis_aligned_bounding_box()
@@ -119,15 +112,15 @@ def vertical_distance_data(A, B, use_center=True):
         # and the highest point of the lower object (A_min_y), considering A is below B after the possible swap.
         vertical_distance = A_min_y - B_max_y if A_min_y > B_max_y else 0
 
-    return vertical_distance
+    return float(vertical_distance)
 
 
-def distance(A, B):
+def distance(A, B) -> float:
     distance = calculate_distances_between_point_clouds(A["pcd"], B["pcd"])
-    return distance
+    return float(distance)
 
 
-def horizontal_distance_data(A, B, use_center=True):
+def horizontal_distance_data(A, B, use_center=True) -> float:
     # Extract bounding boxes for A and B
     A_box = A["pcd"].get_axis_aligned_bounding_box()
     B_box = B["pcd"].get_axis_aligned_bounding_box()
@@ -144,20 +137,20 @@ def horizontal_distance_data(A, B, use_center=True):
         # Calculate the shortest horizontal (x, z plane) distance between the two boxes
         horizontal_distance = max(A_min[0] - B_max[0], B_min[0] - A_max[0], 0)
 
-    return horizontal_distance
+    return float(horizontal_distance)
 
 
-def width_data(A, B=None):
+def width_data(A, B=None) -> float:
     width = A["pcd"].get_axis_aligned_bounding_box().get_extent()[0]
-    return width
+    return float(width)
 
 
-def height_data(A, B=None):
+def height_data(A, B=None) -> float:
     height = A["pcd"].get_axis_aligned_bounding_box().get_extent()[1]
-    return height
+    return float(height)
 
 
-def direction(A, B):
+def direction(A, B) -> int:
     A_cloud = A["pcd"]
     B_cloud = B["pcd"]
 
@@ -166,7 +159,7 @@ def direction(A, B):
 
     clock_position = calculate_angle_clockwise(A_pos, B_pos)
 
-    return clock_position
+    return int(clock_position)
 
 
 class SpatialRelationsGenerator:
@@ -174,7 +167,7 @@ class SpatialRelationsGenerator:
         """Initialize the class."""
         pass
 
-    def evaluate_predicates_on_pairs(self, detections):
+    def analyze_relations(self, detections):
         all_combinations = list(combinations(range(len(detections)), 2))
         # random.shuffle(all_combinations)
         selected_combinations = all_combinations  # [:3]

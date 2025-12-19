@@ -1,12 +1,14 @@
 import atexit
 import json
 import logging
+import numpy as np
+import open3d as o3d
 import os
 import sys
 
-import numpy as np
-import open3d as o3d
 from termcolor import colored
+from typing import Any
+
 
 __all__ = [
     "setup_logger",
@@ -38,7 +40,9 @@ def save_detection_list_to_json(detection_list, output_file):
                 "type": "PointCloud",
                 "points": np.asarray(obj.points).tolist(),
                 "colors": np.asarray(obj.colors).tolist() if obj.has_colors() else None,
-                "normals": np.asarray(obj.normals).tolist() if obj.has_normals() else None,
+                "normals": np.asarray(obj.normals).tolist()
+                if obj.has_normals()
+                else None,
             }
         return obj
 
@@ -61,6 +65,18 @@ def save_detection_list_to_json(detection_list, output_file):
         json.dump(serialized_list, f, indent=2)
 
     print(f"Detection list saved to {output_file}")
+
+
+def save_relations_3d_to_json(relations_3d, output_file):
+    serialized_list = [
+        (relation[0]["id"], relation[1]["id"], relation[2], relation[3]) 
+        for relation in relations_3d
+        ]
+
+    with open(output_file, "w") as f:
+        json.dump(serialized_list, f, indent=2)
+
+    print(f"Relations saved to {output_file}")
 
 
 class SkipImageException(Exception):
@@ -89,7 +105,9 @@ class _ColorfulFormatter(logging.Formatter):
         return prefix + " " + log
 
 
-def setup_logger(output=None, distributed_rank=0, *, name="metricdepth", color=True, abbrev_name=None):
+def setup_logger(
+    output=None, distributed_rank=0, *, name="metricdepth", color=True, abbrev_name=None
+):
     """Initialize the detectron2 logger and set its verbosity level to "DEBUG".
 
     Args:
@@ -110,7 +128,9 @@ def setup_logger(output=None, distributed_rank=0, *, name="metricdepth", color=T
     if abbrev_name is None:
         abbrev_name = "d2"
 
-    plain_formatter = logging.Formatter("[%(asctime)s] %(name)s %(levelname)s %(message)s ", datefmt="%m/%d %H:%M:%S")
+    plain_formatter = logging.Formatter(
+        "[%(asctime)s] %(name)s %(levelname)s %(message)s ", datefmt="%m/%d %H:%M:%S"
+    )
     # stdout logging: master  only
     if distributed_rank == 0:
         ch = logging.StreamHandler(stream=sys.stdout)
