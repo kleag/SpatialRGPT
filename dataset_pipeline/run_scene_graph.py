@@ -79,7 +79,7 @@ class SceneGraphBuilder:
         self.captioner = CaptionImage(cfg, self.logger, self.device)
         self.generator_3d = SpatialRelationsGenerator(cfg, self.logger, self.device)
 
-    def annotate(self, filepath:str) -> SceneGraphNX:
+    def annotate(self, filepath: str) -> SceneGraphNX:
         filename = os.path.basename(filepath)
         print(f"Processing file: {filename}")
 
@@ -130,7 +130,7 @@ class SceneGraphBuilder:
             return SceneGraphNX()
 
     def build_scene_graph(self, nodes, relations):
-        print(f"build_scene_graph nrelations: {relations}", file=sys.stderr)
+        # print(f"build_scene_graph nrelations: {relations}", file=sys.stderr)
         graph = SceneGraphNX()
         nodes_map = {}
         for node in nodes:
@@ -262,10 +262,10 @@ class SceneGraphBuilder:
                 continue
 
             forward_type, reverse_type = mapping
-            print(
-                f"convert_and_add_relations add relation {rel_name}, {forward_type}, {reverse_type}",
-                file=sys.stderr,
-            )
+            # print(
+            #    f"convert_and_add_relations add relation {rel_name}, {forward_type}, {reverse_type}",
+            #    file=sys.stderr,
+            # )
 
             # Determine numeric weight/value
             try:
