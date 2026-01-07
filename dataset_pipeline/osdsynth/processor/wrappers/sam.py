@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-GSA_PATH = "osdsynth/external/Grounded-Segment-Anything"
+GSA_PATH = os.getenv("GSA_PATH", "osdsynth/external/Grounded-Segment-Anything")
 sys.path.append(GSA_PATH)
 
 from segment_anything import SamAutomaticMaskGenerator, SamPredictor, sam_hq_model_registry, sam_model_registry

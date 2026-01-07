@@ -1,3 +1,6 @@
+model_weights
+huggingface_cache/
+*.pth
 *.whl
 *_dev
 8b

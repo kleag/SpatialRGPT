@@ -60,8 +60,9 @@ remove_classes = [
 bg_classes = ["wall", "floor", "ceiling"]
 
 # Sam related params
-sam_variant = "sam-hq" # or 'vit_h', 'vit_l', 'vit_b'
-sam_checkpoint_path = "osdsynth/external/Grounded-Segment-Anything/sam_hq_vit_h.pth"
+sam_variant = "sam-hq"  # or 'vit_h', 'vit_l', 'vit_b'
+sam_checkpoint_path = "model_weights/grounded_sam/sam_hq_vit_h.pth"
+# sam_checkpoint_path = "osdsynth/external/Grounded-Segment-Anything/sam_hq_vit_h.pth"
 
 # Tag2text related params
 specified_tags = "None"
@@ -73,13 +74,14 @@ nms_threshold = 0.5
 gdino_variant = "IDEA-Research/grounding-dino-base"
 
 
-
 # LLaVa related params
 masking_option = "none"
 
 # Selection criteria on the 2D masks
 mask_area_threshold = 25  # mask with pixel area less than this will be skipped
-mask_conf_threshold = 0.3  # mask with lower confidence score will be skipped default 0.2
+mask_conf_threshold = (
+    0.3  # mask with lower confidence score will be skipped default 0.2
+)
 max_bbox_area_ratio = 0.75  # boxes with larger areas than this will be skipped
 skip_bg = False
 min_points_threshold = 16  # projected and sampled pcd with less points will be skipped

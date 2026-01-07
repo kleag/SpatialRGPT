@@ -23,7 +23,8 @@ dependencies = [
     "peft>=0.9.0",
     "bitsandbytes>=0.49.0",
     "markdown2[all]",
-    "numpy>2.1.0",
+#    "numpy>2.1.0",
+    "numpy==1.26.0",
     "scikit-learn>=1.5.0",
     "gradio>=4.0,<5",
     "gradio_client",
@@ -67,6 +68,12 @@ dependencies = [
     "segment-anything-hq>=0.3",
     "flash-attn",
     "fairscale>=0.4.13",
+    "openmim",
+    "iopath",
+    "albumentations",
+    "perspective2d",
+    "segment-anything>=1.0",
+    "matplotlib==3.7.2",
 ]
 
 [project.optional-dependencies]
@@ -107,9 +114,26 @@ url = "https://gitlab.deeplab.intra.cea.fr/api/v4/projects/1822/packages/pypi/si
 # and your global system trust, but you can force it in the config:
 explicit = true
 
+#[[tool.uv.index]]
+#name = "mmcv-cu130"
+#url = "https://download.openmmlab.com/mmcv/dist/cu130/torch2.9/index.html"
+# explicit = true is correct here to prevent it searching here for everything
+
 [tool.uv.sources]
 torch = { index = "pytorch-cuda" }
 torchvision = { index = "pytorch-cuda" }
 robotic_scene_mcp = { index = "cea-gitlab" }
 detectron2 = { git = "https://github.com/facebookresearch/detectron2.git" }
-flash-attn = { path = "../../../flash_attn-2.7.4+cu130torch2.9-cp312-cp312-linux_x86_64.whl" }
+flash-attn = { url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.0/flash_attn-2.7.4%2Bcu130torch2.9-cp312-cp312-linux_x86_64.whl" }
+perspective2d = { git = "https://github.com/jinlinyi/PerspectiveFields.git" }
+#mmcv = { index = "mmcv-cu130" }
+
+[tool.uv.extra-build-dependencies]                                                      
+detectron2 = ["torch"] 
+
+[tool.uv]
+# This ensures torch is available when building other packages
+build-constraint-dependencies = ["torch"]
+environments = [
+    "sys_platform == 'linux'",
+]

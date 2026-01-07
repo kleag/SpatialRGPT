@@ -31,7 +31,9 @@ def run_tagging_model(cfg, raw_image, tagging_model):
     return classes
 
 
-def process_tag_classes(text_prompt: str, add_classes: List[str] = [], remove_classes: List[str] = []) -> list[str]:
+def process_tag_classes(
+    text_prompt: str, add_classes: List[str] = [], remove_classes: List[str] = []
+) -> list[str]:
     """Convert a text prompt from Tag2Text to a list of classes."""
     classes = text_prompt.split(",")
     classes = [obj_class.strip() for obj_class in classes]
@@ -48,9 +50,13 @@ def process_tag_classes(text_prompt: str, add_classes: List[str] = [], remove_cl
 
 
 def get_tagging_model(cfg, device):
-    RAM_CHECKPOINT_PATH = os.path.abspath(
-        "osdsynth/external/Grounded-Segment-Anything/recognize-anything/ram_swin_large_14m.pth"
+    RAM_CHECKPOINT_PATH = os.getenv(
+        "RAM_CKPT_PATH",
+        "osdsynth/external/Grounded-Segment-Anything/recognize-anything/ram_swin_large_14m.pth",
     )
+    # RAM_CHECKPOINT_PATH = os.path.abspath(
+    #     "osdsynth/external/Grounded-Segment-Anything/recognize-anything/ram_swin_large_14m.pth"
+    # )
     tagging_model = ram(pretrained=RAM_CHECKPOINT_PATH, image_size=384, vit="swin_l")
 
     tagging_model = tagging_model.eval().to(device)

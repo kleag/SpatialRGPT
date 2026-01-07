@@ -1,0 +1,22 @@
+services:
+  srgpt_sg:
+    build: .
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Vital for Detectron2/PyTorch DataLoaders
+    shm_size: '2gb'
+    volumes:
+      # Persistent storage for weights
+      - ./model_weights:/app/weights
+      - ./huggingface_cache:/root/.cache
+      # Optional: mount your code for live-reload during development
+      # - ./app:/app/app
+    environment:
+      - WEIGHTS_DIR=/app/weights

@@ -192,17 +192,17 @@ class SpatialRelationsGenerator:
 
         results = []
 
+        to_remove = set()  # A set to hold items to remove
+
+        # Remove all items in `to_remove` from `all_prompt_variants`, if present
+        all_prompt_variants = [
+            item for item in all_prompt_variants if item not in to_remove
+        ]
+
+        selected_predicates_choices = all_prompt_variants
+        # selected_predicates_choices = random.sample(all_prompt_variants, 3)
+
         for A, B in object_pairs:
-            to_remove = set()  # A set to hold items to remove
-
-            # Remove all items in `to_remove` from `all_prompt_variants`, if present
-            all_prompt_variants = [
-                item for item in all_prompt_variants if item not in to_remove
-            ]
-
-            selected_predicates_choices = all_prompt_variants
-            # selected_predicates_choices = random.sample(all_prompt_variants, 3)
-
             for prompt_func in selected_predicates_choices:
                 results.append((A, B, prompt_func.__name__, prompt_func(A, B)))
 
