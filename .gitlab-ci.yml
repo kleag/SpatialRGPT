@@ -19,11 +19,11 @@ build-srgpt-sg:
     - echo "{\"auths\":{\"${DEEPLAB_REGISTRY_URL}\":{\"auth\":\"${AUTH}\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor
       --skip-tls-verify
-      --cache=true \
-      --cache-ttl=168h \
-      --context "${CI_PROJECT_DIR}" \
-      --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
-      --build-arg BUILD_TYPE=uv-standard \
+      --cache=true
+      --cache-ttl=168h
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --build-arg BUILD_TYPE=uv-standard
       --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:latest-${CI_COMMIT_SHORT_SHA}-$(date +%s)"
       --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:${COMMIT_TAG}-${CI_COMMIT_SHORT_SHA}-$(date +%s)"
       --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:${COMMIT_TAG}-${CI_COMMIT_SHORT_SHA}"
