@@ -1,5 +1,7 @@
+# We default to uv-standard, but locally we can override this
+ARG BUILD_TYPE=uv-standard
 # --- Stage 1: Build stage ---
-FROM nvidia/cuda:13.1.0-devel-ubuntu24.04 AS builder
+FROM nvidia/cuda:13.1.0-devel-ubuntu24.04 AS base
 
 # Install Python 3.12 and build-time system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -36,10 +38,22 @@ ENV UV_PYTHON=python3.12
 # Copy lockfiles first to leverage Docker layer caching
 COPY pyproject.toml uv.lock ./
 
+
 # Install dependencies into a localized .venv
 # --frozen: ensures the lockfile is respected exactly
 # --no-install-project: avoids installing the local package in the build layer
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-install-project --no-dev --native-tls
+# --- Stage A: Local Cache Stage (Used by Dev machine) ---
+FROM base AS uv-cache
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev --native-tls
+
+# --- Stage B: Standard Stage (Used by Kaniko/CI) ---
+FROM base AS uv-standard
+RUN uv sync --frozen --no-install-project --no-dev --native-tls
+
+# --- Final Stage: Application Build ---
+ARG BUILD_TYPE
+FROM ${BUILD_TYPE} AS final
 
 
 # 2. Clone External Repositories (Pinning to your specific commit)

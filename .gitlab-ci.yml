@@ -1,0 +1,34 @@
+variables:
+  CI_DEBUG_TRACE: "false"
+  IMAGE_NAME: "srgpt_sg"
+
+stages:
+  - build
+
+build-srgpt-sg:
+  tags:
+    - kaniko
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  stage: build
+  script:
+    - 'if [ -n "$CI_COMMIT_TAG" ]; then export COMMIT_TAG=$CI_COMMIT_TAG; elif [ -n "$CI_COMMIT_BRANCH" ]; then export COMMIT_TAG=$CI_COMMIT_BRANCH; elif [ -n "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" ]; then export COMMIT_TAG=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME; else export COMMIT_TAG=latest; fi'
+    - export AUTH=$(echo -n "${DEEPLAB_REGISTRY_USER}:${DEEPLAB_REGISTRY_PASSWORD}" | base64 -w 0)
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${DEEPLAB_REGISTRY_URL}\":{\"auth\":\"${AUTH}\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --skip-tls-verify
+      --cache=true \
+      --cache-ttl=168h \
+      --context "${CI_PROJECT_DIR}" \
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
+      --build-arg BUILD_TYPE=uv-standard \
+      --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:latest-${CI_COMMIT_SHORT_SHA}-$(date +%s)"
+      --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:${COMMIT_TAG}-${CI_COMMIT_SHORT_SHA}-$(date +%s)"
+      --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:${COMMIT_TAG}-${CI_COMMIT_SHORT_SHA}"
+      --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:${COMMIT_TAG}"
+      --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:${COMMIT_TAG}-latest"
+      --destination "${DEEPLAB_REGISTRY_URL}/ridder/${IMAGE_NAME}:latest"
+      --use-new-run
+      --snapshot-mode=redo

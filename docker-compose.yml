@@ -1,6 +1,9 @@
 services:
   srgpt_sg:
-    build: .
+    build: 
+      context: .
+      args:
+        - BUILD_TYPE=uv-cache
     ports:
       - "8000:8000"
     deploy:
